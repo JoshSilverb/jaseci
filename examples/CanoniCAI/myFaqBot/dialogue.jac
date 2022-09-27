@@ -1,6 +1,6 @@
 # Setting up state graph
 
-# Defining state nodes
+# Defining state roots
 node dialogue_root;
 
 node dialogue_state {
@@ -12,6 +12,7 @@ node dialogue_state {
 edge intent_transition {
     has intent;
 }
+
 
 # Build graph from nodes and edges
 graph dialogue_system {
@@ -44,15 +45,22 @@ walker init {
 # Chatbot walker logic
 walker talk {
     has question;
+    can bi_enc.infer;
     root {
         question = std.input("> ");
         take --> node::dialogue_root;
     }
     dialogue_root {
-        take -[intent_transition(intent==question)]-> node::dialogue_state;
+        intent_labels = -[intent_transition]->.edge.intent;
+        predicted_intent = bi_enc.infer(
+            contexts = [question],
+            candidates = intent_labels,
+            context_type = "text",
+            candidate_type = "text"
+        )[0]["predicted"]["label"];
+        take -[intent_transition(intent==predicted_intent)]-> node::dialogue_state;
     }
     dialogue_state {
         std.out(here.response);
     }
 }
-
